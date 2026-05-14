@@ -1,52 +1,53 @@
-name: Build and Release Linux Binary
+name: Release
 
 on:
   push:
-    branches: [master]
+    tags:
+      - "v*"
 
 permissions:
   contents: write
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    name: Build ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
-        run: pip install . pyinstaller
-
-      - name: Get version
-        id: version
-        run: echo "version=$(python -c 'from omniscan import __version__; print(__version__)')" >> $GITHUB_OUTPUT
-
-      - name: Build binary
+      - name: Build Linux binary
+        if: runner.os == 'Linux'
         run: |
-          pyinstaller --onefile \
-            --name omniscan \
-            --collect-data sherlock_project \
-            omniscan/__main__.py
+          bash ./scripts/build-linux.sh
 
-      - name: Smoke test
-        run: ./dist/omniscan --version
+      - name: Build Windows binary
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          ./scripts/build-windows.ps1
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - name: Upload Linux asset
+        if: runner.os == 'Linux'
+        uses: softprops/action-gh-release@v2
         with:
-          name: omniscan-linux-x86_64
-          path: dist/omniscan
+          files: |
+            dist/release/omniscan-linux-x86_64
+          generate_release_notes: true
 
-      - name: Create release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release delete "v${{ steps.version.outputs.version }}" --cleanup-tag --yes 2>/dev/null || true
-          gh release create "v${{ steps.version.outputs.version }}" \
-            --title "v${{ steps.version.outputs.version }}" \
-            --notes "Built from commit ${{ github.sha }}" \
-            "dist/omniscan#omniscan-linux-x86_64"
+      - name: Upload Windows asset
+        if: runner.os == 'Windows'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/release/omniscan-windows-x86_64.exe
+          generate_release_notes: true
