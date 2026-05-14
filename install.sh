@@ -25,14 +25,46 @@ ok "$(${PY} --version)"
 
 # ── omniscan ──────────────────────────────────────────────────────────────────
 log "Installing omniscan..."
-PIP=""
-for candidate in pip3 pip; do
-    command -v "$candidate" &>/dev/null && PIP="$candidate" && break
-done
-[[ -n "$PIP" ]] || PIP="$PY -m pip"
 
-$PIP install --quiet --upgrade omniscan
-ok "omniscan $($PY -c 'import omniscan; print(omniscan.__version__)')"
+_pip_cmd() {
+    local pip_bin=""
+    for candidate in pip3 pip; do
+        command -v "$candidate" &>/dev/null && pip_bin="$candidate" && break
+    done
+    echo "${pip_bin:-$PY -m pip}"
+}
+
+_install_omniscan() {
+    # 1. pipx — the right tool for CLI apps on PEP 668 (Debian/Ubuntu 22+)
+    if command -v pipx &>/dev/null; then
+        pipx install omniscan 2>/dev/null || pipx upgrade omniscan 2>/dev/null || return 1
+        pipx ensurepath --quiet 2>/dev/null || true
+        export PATH="$HOME/.local/bin:$PATH"
+        return 0
+    fi
+
+    local pip
+    pip=$(_pip_cmd)
+
+    # 2. plain pip — works on venv / non-PEP 668 systems
+    $pip install --quiet --upgrade omniscan 2>/dev/null && return 0
+
+    # 3. pip --break-system-packages — PEP 668 without pipx
+    warn "System pip blocked by PEP 668; retrying with --break-system-packages..."
+    $pip install --quiet --upgrade --break-system-packages omniscan 2>/dev/null && return 0
+
+    return 1
+}
+
+_install_omniscan || err "Could not install omniscan. Install pipx first (sudo apt install pipx) and re-run."
+
+# ensure ~/.local/bin is in PATH for this session
+export PATH="$HOME/.local/bin:$PATH"
+
+OMNISCAN_VER=$(omniscan --version 2>/dev/null | awk '{print $NF}' \
+    || $PY -c 'import omniscan; print(omniscan.__version__)' 2>/dev/null \
+    || echo "installed")
+ok "omniscan ${OMNISCAN_VER}"
 
 # ── PhoneInfoga ───────────────────────────────────────────────────────────────
 log "Detecting platform for PhoneInfoga..."
