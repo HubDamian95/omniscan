@@ -14,7 +14,7 @@ This installs:
 - **omniscan** — the Python CLI (via pip; includes Sherlock automatically)
 - **PhoneInfoga** — Go binary for phone number scanning (downloaded from GitHub releases, placed in `/usr/local/bin`)
 
-**Requirements:** Python 3.8+, pip, curl, tar. No other pre-installs needed.
+**Requirements:** curl, tar. That's it — self-contained binaries, no Python or pip needed.
 
 > **npm alternative** — if you prefer Node.js over Python:
 > ```bash
