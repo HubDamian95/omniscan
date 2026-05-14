@@ -106,10 +106,18 @@ fi
 log "Installing Maigret and GHunt..."
 if command -v pipx &>/dev/null; then
     export PATH="$HOME/.local/bin:$PATH"
+
+    # maigret depends on pycairo which needs cairo system libs
+    if command -v apt-get &>/dev/null; then
+        sudo apt-get install -y -q pkg-config libcairo2-dev >/dev/null 2>&1 || true
+    elif command -v brew &>/dev/null; then
+        brew install pkg-config cairo >/dev/null 2>&1 || true
+    fi
+
     if pipx install maigret >/dev/null 2>&1; then
         ok "Maigret installed"
     else
-        warn "Maigret install failed — install manually: pipx install maigret"
+        warn "Maigret install failed — install manually: sudo apt install pkg-config libcairo2-dev && pipx install maigret"
     fi
     if pipx install ghunt >/dev/null 2>&1; then
         ok "GHunt installed (run 'ghunt login' once to authenticate)"
@@ -132,6 +140,7 @@ fi
 # ── Done ──────────────────────────────────────────────────────────────────────
 echo ""
 log "All done. Try it:"
-printf "  omniscan johndoe --sherlock\n"
+printf "  omniscan johndoe --sherlock --maigret\n"
+printf "  omniscan johndoe@gmail.com --holehe --ghunt\n"
 printf "  omniscan +12025551234 --phoneinfoga\n"
-printf "  omniscan johndoe +12025551234 --sherlock --phoneinfoga\n"
+printf "  omniscan johndoe johndoe@gmail.com +12025551234 --sherlock --holehe --maigret --ghunt --phoneinfoga\n"
