@@ -26,41 +26,43 @@ ok "$(${PY} --version)"
 # ── omniscan ──────────────────────────────────────────────────────────────────
 log "Installing omniscan..."
 
-_pip_cmd() {
-    local pip_bin=""
-    for candidate in pip3 pip; do
-        command -v "$candidate" &>/dev/null && pip_bin="$candidate" && break
-    done
-    echo "${pip_bin:-$PY -m pip}"
-}
+PIP_CMD=""
+for _c in pip3 pip; do
+    command -v "$_c" &>/dev/null && PIP_CMD="$_c" && break
+done
+[[ -n "$PIP_CMD" ]] || PIP_CMD="$PY -m pip"
 
-_install_omniscan() {
-    # 1. pipx — the right tool for CLI apps on PEP 668 (Debian/Ubuntu 22+)
-    if command -v pipx &>/dev/null; then
-        pipx install omniscan 2>/dev/null || pipx upgrade omniscan 2>/dev/null || return 1
-        pipx ensurepath --quiet 2>/dev/null || true
+OMNISCAN_OK=0
+
+# 1. pipx — correct tool for PEP 668 / Debian-based systems
+if command -v pipx &>/dev/null; then
+    if pipx install omniscan >/dev/null 2>&1 || pipx upgrade omniscan >/dev/null 2>&1; then
+        pipx ensurepath >/dev/null 2>&1 || true
         export PATH="$HOME/.local/bin:$PATH"
-        return 0
+        OMNISCAN_OK=1
     fi
+fi
 
-    local pip
-    pip=$(_pip_cmd)
+# 2. plain pip (venvs, Homebrew Python, older distros)
+if [[ $OMNISCAN_OK -eq 0 ]]; then
+    if $PIP_CMD install --quiet --upgrade omniscan >/dev/null 2>&1; then
+        OMNISCAN_OK=1
+    fi
+fi
 
-    # 2. plain pip — works on venv / non-PEP 668 systems
-    $pip install --quiet --upgrade omniscan 2>/dev/null && return 0
+# 3. pip --break-system-packages (PEP 668 without pipx)
+if [[ $OMNISCAN_OK -eq 0 ]]; then
+    warn "Plain pip blocked (PEP 668). Retrying with --break-system-packages..."
+    if $PIP_CMD install --quiet --upgrade --break-system-packages omniscan >/dev/null 2>&1; then
+        OMNISCAN_OK=1
+    fi
+fi
 
-    # 3. pip --break-system-packages — PEP 668 without pipx
-    warn "System pip blocked by PEP 668; retrying with --break-system-packages..."
-    $pip install --quiet --upgrade --break-system-packages omniscan 2>/dev/null && return 0
+if [[ $OMNISCAN_OK -eq 0 ]]; then
+    err "Could not install omniscan. Try: sudo apt install pipx && pipx install omniscan"
+fi
 
-    return 1
-}
-
-_install_omniscan || err "Could not install omniscan. Install pipx first (sudo apt install pipx) and re-run."
-
-# ensure ~/.local/bin is in PATH for this session
 export PATH="$HOME/.local/bin:$PATH"
-
 OMNISCAN_VER=$(omniscan --version 2>/dev/null | awk '{print $NF}' \
     || $PY -c 'import omniscan; print(omniscan.__version__)' 2>/dev/null \
     || echo "installed")
