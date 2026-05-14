@@ -17,9 +17,9 @@ import colorama
 import tqdm
 from colorama import Fore, Style
 
-from socialscan import __version__
-from socialscan.platforms import PlatformResponse, Platforms
-from socialscan.util import init_checkers, init_prerequest, query
+from omniscan import __version__
+from omniscan.platforms import PlatformResponse, Platforms
+from omniscan.util import EMAIL_REGEX, init_checkers, init_prerequest, query
 
 BAR_WIDTH = 50
 BAR_FORMAT = "{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed_s:.2f}s]"
@@ -96,6 +96,12 @@ def init_parser():
         action="store_true",
         help="output debug messages",
     )
+    parser.add_argument(
+        "--sherlock",
+        "-s",
+        action="store_true",
+        help="also run Sherlock to check username across 400+ additional sites",
+    )
     parser.add_argument("--version", version=f"%(prog)s {__version__}", action="version")
     return parser
 
@@ -154,6 +160,67 @@ def print_json(results, *, file, available_only):
 
     with open(file, "w") as f:
         f.write(json.dumps(results, default=serialize, indent=4))
+
+
+async def run_sherlock(username, timeout=15):
+    from sherlock_project.notify import QueryNotify
+    from sherlock_project.sherlock import sherlock as sherlock_scan
+    from sherlock_project.sites import SitesInformation
+
+    sites_info = SitesInformation()
+    site_data = {site.name: site.information for site in sites_info}
+    return await asyncio.to_thread(
+        sherlock_scan, username, site_data, QueryNotify(), timeout=timeout
+    )
+
+
+def print_sherlock_results(sherlock_results, *, available_only, show_urls):
+    from sherlock_project.result import QueryStatus
+
+    print("\n" + "=" * DIVIDER_LENGTH)
+    print(" " * (DIVIDER_LENGTH // 2 - 8) + Style.BRIGHT + "SHERLOCK SCAN" + Style.RESET_ALL)
+    print("=" * DIVIDER_LENGTH)
+
+    for username, results in sherlock_results.items():
+        header = (
+            f"{'-' * DIVIDER_LENGTH}\n"
+            f"{' ' * (DIVIDER_LENGTH // 2 - len(username) // 2) + Style.BRIGHT + username + Style.RESET_ALL}\n"
+            f"{'-' * DIVIDER_LENGTH}"
+        )
+        print(header)
+
+        claimed = sorted(
+            [(site, info) for site, info in results.items()
+             if info["status"].status == QueryStatus.CLAIMED],
+            key=lambda x: x[0].lower(),
+        )
+        available = sorted(
+            [(site, info) for site, info in results.items()
+             if info["status"].status == QueryStatus.AVAILABLE],
+            key=lambda x: x[0].lower(),
+        )
+
+        if not available_only:
+            for site, info in claimed:
+                line = COLOUR_UNAVAILABLE.Primary + site
+                if show_urls:
+                    line += COLOUR_UNAVAILABLE.Secondary + f" - {info['url_user']}"
+                print(line)
+
+        if available_only:
+            for site, info in available:
+                print(COLOUR_AVAILABLE.Primary + site)
+
+        if not available_only:
+            errors = sum(
+                1 for info in results.values()
+                if info["status"].status not in (QueryStatus.CLAIMED, QueryStatus.AVAILABLE, QueryStatus.ILLEGAL)
+            )
+            print(
+                f"\n{COLOUR_UNAVAILABLE.Primary}{len(claimed)} found"
+                f"{Fore.RESET}, {COLOUR_AVAILABLE.Primary}{len(available)} available"
+                f"{Fore.RESET}, {COLOUR_ERROR.Primary}{errors} errors"
+            )
 
 
 async def main():
@@ -229,3 +296,18 @@ async def main():
             show_urls=args.show_urls,
         )
     print(f"Completed {len(platform_queries)} queries in {time.time() - start_time:.2f}s")
+
+    if args.sherlock:
+        username_queries = [q for q in queries if not EMAIL_REGEX.match(q)]
+        if username_queries:
+            print("\nRunning Sherlock scan (this may take a moment)...")
+            sherlock_results = {}
+            for uq in username_queries:
+                sherlock_results[uq] = await run_sherlock(uq)
+            print_sherlock_results(
+                sherlock_results,
+                available_only=args.available_only,
+                show_urls=args.show_urls,
+            )
+        else:
+            print("\n[Sherlock] Skipped: Sherlock only supports username queries, not email addresses.")
