@@ -1,8 +1,17 @@
 # omniscan
 
-Username, email and phone number scanner. Combines accurate registration-API checks on key platforms with [Sherlock](https://github.com/sherlock-project/sherlock)'s 480+ site sweep and [PhoneInfoga](https://github.com/sundowndev/phoneinfoga) phone number intelligence — all in a single command.
+One command. Every OSINT tool.
 
-Forked from [socialscan](https://github.com/iojw/socialscan).
+omniscan is a unified OSINT CLI that aggregates the best open-source intelligence tools into a single interface — no more switching between terminals, remembering different flags, or managing separate installs. Feed it a username, email, or phone number and it fans out across all the right tools automatically.
+
+| Tool | What it covers | Flag |
+|------|---------------|------|
+| Built-in checks | GitHub, GitLab, Instagram, Reddit, Twitter, Firefox | *(always on)* |
+| [Sherlock](https://github.com/sherlock-project/sherlock) | 480+ sites — username sweep | `--sherlock` |
+| [Holehe](https://github.com/megadose/holehe) | 120+ sites — email registration check | `--holehe` |
+| [Maigret](https://github.com/soxoj/maigret) | 2500+ sites — deep username profiling | `--maigret` |
+| [GHunt](https://github.com/mxrch/GHunt) | Google account OSINT from email | `--ghunt` |
+| [PhoneInfoga](https://github.com/sundowndev/phoneinfoga) | Phone number intelligence | `--phoneinfoga` |
 
 ## Install
 

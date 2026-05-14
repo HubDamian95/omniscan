@@ -1,7 +1,7 @@
 {
   "name": "omniscan",
   "version": "2.0.5",
-  "description": "Username, email and phone number scanner. Combines accurate registration-API checks with Sherlock's 480+ site sweep and PhoneInfoga phone scanning.",
+  "description": "Unified OSINT CLI — aggregates Sherlock, Holehe, Maigret, GHunt and PhoneInfoga into a single command.",
   "keywords": ["osint", "username", "email", "scanner", "sherlock", "cli"],
   "author": "HubDamian95",
   "license": "MPL-2.0",

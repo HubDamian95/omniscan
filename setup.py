@@ -24,7 +24,7 @@ with open(path.join(here, "README.md"), encoding="utf-8") as f:
 setup(
     name="omniscan",
     version=__version__,
-    description="Username and email availability scanner with full-spectrum coverage. Combines accurate registration-API checks with Sherlock's 480+ site sweep.",
+    description="Unified OSINT CLI — aggregates Sherlock, Holehe, Maigret, GHunt and PhoneInfoga into a single command.",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/HubDamian95/omniscan",
