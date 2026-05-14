@@ -420,7 +420,7 @@ async def run_maigret(username, overall_timeout=300):
         )
         return None
     return await _run_subprocess_tool(
-        [tool, username, "--no-color", "-T", "30"], overall_timeout
+        [tool, username, "--no-color", "--no-progressbar", "--timeout", "30"], overall_timeout
     )
 
 
