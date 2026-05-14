@@ -5,7 +5,7 @@
 import asyncio
 import sys
 
-from socialscan import cli
+from omniscan import cli
 
 
 def main():

@@ -10,7 +10,7 @@ from enum import Enum
 
 import aiohttp
 
-from socialscan import __version__
+from omniscan import __version__
 
 
 class QueryError(Exception):
@@ -152,10 +152,11 @@ class BasePlatform:
 
     @staticmethod
     async def get_json(request):
-        if not request.headers["Content-Type"].startswith("application/json"):
+        content_type = request.headers.get("Content-Type", "")
+        if not content_type.startswith("application/json"):
             raise QueryError(
                 BasePlatform.UNEXPECTED_CONTENT_TYPE_ERROR_MESSAGE.format(
-                    request.headers["Content-Type"]
+                    content_type or "none"
                 )
             )
         else:
@@ -218,122 +219,54 @@ class Snapchat(BasePlatform, UsernameQueryable, PrerequestRequired):
     # Email: Snapchat doesn't associate email addresses with accounts
 
 
-class Instagram(BasePlatform, UsernameQueryable, EmailQueryable, PrerequestRequired):
-    URL = "https://www.instagram.com/api/v1/public/landing_info/"
-    ENDPOINT = "https://www.instagram.com/accounts/web_create_ajax/attempt/"
-    USERNAME_TAKEN_MSGS = [
-        "This username isn't available.",
-        "A user with that username already exists.",
-    ]
+class Instagram(BasePlatform, UsernameQueryable):
+    # Instagram's registration API now blocks unauthenticated requests.
+    # Falls back to profile-page existence check (less accurate: can't detect reserved usernames).
+    USERNAME_ENDPOINT = "https://www.instagram.com/{}/"
     USERNAME_LINK_FORMAT = "https://www.instagram.com/{}"
 
-    async def prerequest(self):
-        async with self.get(Instagram.URL) as r:
-            if "csrftoken" in r.cookies:
-                token = r.cookies["csrftoken"].value
-                return token
-
     async def check_username(self, username):
-        token = await self.get_token()
-        async with self.post(
-            Instagram.ENDPOINT, data={"username": username}, headers={"x-csrftoken": token}
-        ) as r:
-            json_body = await self.get_json(r)
-            # Too many requests
-            if json_body["status"] == "fail":
-                return self.response_failure(username, message=json_body["message"])
-            if "username" in json_body["errors"]:
-                return self.response_unavailable_or_invalid(
-                    username,
-                    message=json_body["errors"]["username"][0]["message"],
-                    unavailable_messages=Instagram.USERNAME_TAKEN_MSGS,
-                    link=Instagram.USERNAME_LINK_FORMAT.format(username),
+        async with self.get(Instagram.USERNAME_ENDPOINT.format(username)) as r:
+            if r.status == 200:
+                return self.response_unavailable(
+                    username, link=Instagram.USERNAME_LINK_FORMAT.format(username)
                 )
-            else:
-                return self.response_available(username)
-
-    async def check_email(self, email):
-        token = await self.get_token()
-        async with self.post(
-            Instagram.ENDPOINT, data={"email": email}, headers={"x-csrftoken": token}
-        ) as r:
-            json_body = await self.get_json(r)
-            # Too many requests
-            if json_body["status"] == "fail":
-                return self.response_failure(email, message=json_body["message"])
-            if "email" not in json_body["errors"]:
-                return self.response_available(email)
-            else:
-                message = json_body["errors"]["email"][0]["message"]
-                if json_body["errors"]["email"][0]["code"] == "invalid_email":
-                    return self.response_invalid(email, message=message)
-                else:
-                    return self.response_unavailable(email, message=message)
-
-
-class GitHub(BasePlatform, UsernameQueryable, EmailQueryable, PrerequestRequired):
-    URL = "https://github.com/join"
-    USERNAME_ENDPOINT = "https://github.com/signup_check/username"
-    EMAIL_ENDPOINT = "https://github.com/signup_check/email"
-    # [username taken, reserved keyword (Username __ is unavailable)]
-    USERNAME_TAKEN_MSGS = ["already taken", "unavailable", "not available"]
-    USERNAME_LINK_FORMAT = "https://github.com/{}"
-
-    token_regex = re.compile(
-        r'<auto-check src="/signup_check/username[\s\S]*?value="([\S]+)"[\s\S]*<auto-check src="/signup_check/email[\s\S]*?value="([\S]+)"'
-    )
-    tag_regex = re.compile(r"<[^>]+>")
-
-    async def prerequest(self):
-        async with self.get(GitHub.URL) as r:
-            text = await self.get_text(r)
-            match = self.token_regex.search(text)
-            if match:
-                username_token = match.group(1)
-                email_token = match.group(2)
-                return (username_token, email_token)
-
-    async def check_username(self, username):
-        pr = await self.get_token()
-        (username_token, _) = pr
-        async with self.post(
-            GitHub.USERNAME_ENDPOINT,
-            data={"value": username, "authenticity_token": username_token},
-        ) as r:
-            if r.status == 422:
-                text = await self.get_text(r)
-                text = self.tag_regex.sub("", text).strip()
-                return self.response_unavailable_or_invalid(
-                    username,
-                    message=text,
-                    unavailable_messages=GitHub.USERNAME_TAKEN_MSGS,
-                    link=GitHub.USERNAME_LINK_FORMAT.format(username),
-                )
-            elif r.status == 200:
+            elif r.status == 404:
                 return self.response_available(username)
             elif r.status == 429:
                 return self.response_failure(
                     username, message=BasePlatform.TOO_MANY_REQUEST_ERROR_MESSAGE
                 )
-
-    async def check_email(self, email):
-        pr = await self.get_token()
-        if pr is None:
-            return self.response_failure(email, message=BasePlatform.TOKEN_ERROR_MESSAGE)
-        else:
-            (_, email_token) = pr
-        async with self.post(
-            GitHub.EMAIL_ENDPOINT,
-            data={"value": email, "authenticity_token": email_token},
-        ) as r:
-            if r.status == 422:
-                text = await self.get_text(r)
-                return self.response_unavailable(email, message=text)
-            elif r.status == 200:
-                return self.response_available(email)
-            elif r.status == 429:
+            else:
                 return self.response_failure(
-                    email, message=BasePlatform.TOO_MANY_REQUEST_ERROR_MESSAGE
+                    username, message=f"Unexpected status {r.status}"
+                )
+
+
+class GitHub(BasePlatform, UsernameQueryable):
+    # Uses the public REST API — no CSRF token required.
+    # Trade-off: can't distinguish "reserved" usernames from "available" (both return 404).
+    USERNAME_ENDPOINT = "https://api.github.com/users/{}"
+    USERNAME_LINK_FORMAT = "https://github.com/{}"
+
+    async def check_username(self, username):
+        async with self.get(
+            GitHub.USERNAME_ENDPOINT.format(username),
+            headers={"Accept": "application/vnd.github+json"},
+        ) as r:
+            if r.status == 200:
+                return self.response_unavailable(
+                    username, link=GitHub.USERNAME_LINK_FORMAT.format(username)
+                )
+            elif r.status == 404:
+                return self.response_available(username)
+            elif r.status in (403, 429):
+                return self.response_failure(
+                    username, message=BasePlatform.TOO_MANY_REQUEST_ERROR_MESSAGE
+                )
+            else:
+                return self.response_failure(
+                    username, message=f"Unexpected status {r.status}"
                 )
 
 

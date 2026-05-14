@@ -8,7 +8,7 @@ import sys
 
 import aiohttp
 
-from socialscan.platforms import (EmailQueryable, PlatformResponse, Platforms,
+from omniscan.platforms import (EmailQueryable, PlatformResponse, Platforms,
                                   PrerequestRequired, QueryError,
                                   UsernameQueryable)
 
