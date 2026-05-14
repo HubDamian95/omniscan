@@ -16,6 +16,6 @@ pyinstaller --onefile \
   omniscan/__main__.py
 
 mkdir -p dist/release
-cp dist/omniscan dist/release/omniscan-macos-x86_64
+cp dist/omniscan dist/release/omniscan-macos-arm64
 
-echo "Built: dist/release/omniscan-macos-x86_64"
+echo "Built: dist/release/omniscan-macos-arm64"
