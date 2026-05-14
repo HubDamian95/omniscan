@@ -12,6 +12,7 @@ const platform = os.platform();
 const assetMap = {
   linux:  'omniscan-linux-x86_64',
   win32:  'omniscan-windows-x86_64.exe',
+  darwin: 'omniscan-macos-x86_64',
 };
 
 const asset = assetMap[platform];
