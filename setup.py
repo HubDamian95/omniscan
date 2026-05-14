@@ -12,6 +12,8 @@ install_requires = [
     "aiohttp>=3.5.0",
     "tqdm>=4.31.0",
     "sherlock-project>=0.15.0",
+    "holehe>=1.8.0",
+    "httpx>=0.24.0",
 ]
 
 tests_requires = ["tox", "flake8"]

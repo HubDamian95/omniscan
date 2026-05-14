@@ -11,8 +11,10 @@ curl -fsSL https://raw.githubusercontent.com/HubDamian95/omniscan/master/install
 ```
 
 This installs:
-- **omniscan** — the Python CLI (via pip; includes Sherlock automatically)
-- **PhoneInfoga** — Go binary for phone number scanning (downloaded from GitHub releases, placed in `/usr/local/bin`)
+- **omniscan** — pre-built binary (includes Sherlock + Holehe bundled)
+- **PhoneInfoga** — Go binary for phone number scanning
+- **Maigret** — 2500+ site username sweep (via pipx, if available)
+- **GHunt** — Google account OSINT from email (via pipx, if available)
 
 **Requirements:** curl, tar. That's it — self-contained binaries, no Python or pip needed.
 
@@ -39,6 +41,9 @@ options:
   --verbose, -v                     show responses as they arrive
   --show-urls                       display profile URLs for found usernames
   --sherlock, -s                    also run Sherlock across 480+ sites
+  --holehe                          check email on 120+ sites via Holehe (bundled)
+  --maigret                         sweep username across 2500+ sites via Maigret
+  --ghunt                           Google account OSINT from email via GHunt (requires ghunt login)
   --phoneinfoga, -n                 scan phone numbers via PhoneInfoga
   --json json.txt                   output results as JSON
   --debug                           output debug messages
@@ -67,9 +72,24 @@ Scan a phone number:
 omniscan +12025551234 --phoneinfoga
 ```
 
-Everything at once — username, email, phone, all scanners:
+Check email on 120+ sites via Holehe:
 ```bash
-omniscan johndoe johndoe@gmail.com +12025551234 --sherlock --phoneinfoga --show-urls
+omniscan johndoe@gmail.com --holehe
+```
+
+Sweep username across 2500+ sites via Maigret:
+```bash
+omniscan johndoe --maigret
+```
+
+Google account OSINT (requires `ghunt login` once):
+```bash
+omniscan johndoe@gmail.com --ghunt
+```
+
+Everything at once:
+```bash
+omniscan johndoe johndoe@gmail.com +12025551234 --sherlock --holehe --maigret --ghunt --phoneinfoga --show-urls
 ```
 
 Check only specific platforms:

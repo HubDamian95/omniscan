@@ -108,6 +108,21 @@ def init_parser():
         action="store_true",
         help="run PhoneInfoga to scan phone numbers (e.g. +12025551234); requires phoneinfoga in PATH",
     )
+    parser.add_argument(
+        "--holehe",
+        action="store_true",
+        help="check email addresses on 120+ sites via Holehe (bundled)",
+    )
+    parser.add_argument(
+        "--maigret",
+        action="store_true",
+        help="sweep usernames across 2500+ sites via Maigret; requires maigret in PATH",
+    )
+    parser.add_argument(
+        "--ghunt",
+        action="store_true",
+        help="Google account OSINT from email via GHunt; requires ghunt in PATH and prior 'ghunt login'",
+    )
     parser.add_argument("--version", version=f"%(prog)s {__version__}", action="version")
     return parser
 
@@ -290,6 +305,137 @@ def print_phoneinfoga_results(phoneinfoga_results):
             print(COLOUR_ERROR.Primary + "No results returned.")
 
 
+async def run_holehe(email, overall_timeout=120):
+    try:
+        import httpx
+        from holehe.core import get_holehe_results
+    except ImportError:
+        print("\nomniscan: Holehe not available. Install: pip install holehe")
+        return None
+
+    try:
+        async with httpx.AsyncClient() as client:
+            return await asyncio.wait_for(
+                get_holehe_results(email, client),
+                timeout=overall_timeout,
+            )
+    except asyncio.TimeoutError:
+        print(f"\nomniscan: Holehe scan timed out after {overall_timeout}s")
+        return []
+
+
+def print_holehe_results(holehe_results, *, available_only):
+    print("\n" + "=" * DIVIDER_LENGTH)
+    print(" " * (DIVIDER_LENGTH // 2 - 6) + Style.BRIGHT + "HOLEHE SCAN" + Style.RESET_ALL)
+    print("=" * DIVIDER_LENGTH)
+
+    for email, results in holehe_results.items():
+        if results is None:
+            continue
+        header = (
+            f"{'-' * DIVIDER_LENGTH}\n"
+            f"{' ' * (DIVIDER_LENGTH // 2 - len(email) // 2)}{Style.BRIGHT}{email}{Style.RESET_ALL}\n"
+            f"{'-' * DIVIDER_LENGTH}"
+        )
+        print(header)
+
+        found = sorted([r for r in results if r.get("exists")], key=lambda r: r["name"].lower())
+        not_found = [r for r in results if not r.get("exists") and not r.get("rateLimit")]
+        rate_limited = [r for r in results if r.get("rateLimit")]
+
+        if not available_only:
+            for r in found:
+                line = COLOUR_UNAVAILABLE.Primary + r["name"]
+                extras = []
+                if r.get("emailrecovery"):
+                    extras.append(f"recovery: {r['emailrecovery']}")
+                if r.get("phoneNumber"):
+                    extras.append(f"phone: {r['phoneNumber']}")
+                if extras:
+                    line += COLOUR_UNAVAILABLE.Secondary + f" ({', '.join(extras)})"
+                print(line)
+        else:
+            for r in sorted(not_found, key=lambda r: r["name"].lower()):
+                print(COLOUR_AVAILABLE.Primary + r["name"])
+
+        if not available_only:
+            print(
+                f"\n{COLOUR_UNAVAILABLE.Primary}{len(found)} found"
+                f"{Fore.RESET}, {COLOUR_AVAILABLE.Primary}{len(not_found)} not registered"
+                f"{Fore.RESET}, {COLOUR_ERROR.Primary}{len(rate_limited)} rate limited"
+            )
+
+
+async def _run_subprocess_tool(cmd, overall_timeout):
+    import subprocess
+    try:
+        result = await asyncio.wait_for(
+            asyncio.to_thread(subprocess.run, cmd, capture_output=True, text=True),
+            timeout=overall_timeout,
+        )
+        return (result.stdout + result.stderr).strip()
+    except asyncio.TimeoutError:
+        print(f"\nomniscan: {cmd[0]} timed out after {overall_timeout}s")
+        return None
+
+
+def _find_tool(name):
+    import os
+    import shutil
+    tool = shutil.which(name)
+    if not tool:
+        bin_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+        candidate = os.path.join(bin_dir, name + (".exe" if sys.platform == "win32" else ""))
+        if os.path.exists(candidate):
+            tool = candidate
+    return tool
+
+
+def _print_tool_section(title, results):
+    pad = DIVIDER_LENGTH // 2 - len(title) // 2
+    print("\n" + "=" * DIVIDER_LENGTH)
+    print(" " * pad + Style.BRIGHT + title + Style.RESET_ALL)
+    print("=" * DIVIDER_LENGTH)
+
+    for query_str, output in results.items():
+        header = (
+            f"{'-' * DIVIDER_LENGTH}\n"
+            f"{' ' * (DIVIDER_LENGTH // 2 - len(query_str) // 2)}{Style.BRIGHT}{query_str}{Style.RESET_ALL}\n"
+            f"{'-' * DIVIDER_LENGTH}"
+        )
+        print(header)
+        if output:
+            print(output)
+        else:
+            print(COLOUR_ERROR.Primary + "No results returned.")
+
+
+async def run_maigret(username, overall_timeout=300):
+    tool = _find_tool("maigret")
+    if not tool:
+        print(
+            "\nomniscan: Maigret not found.\n"
+            "Install: pipx install maigret  or  pip install maigret\n"
+            "Then make sure 'maigret' is in your PATH."
+        )
+        return None
+    return await _run_subprocess_tool(
+        [tool, username, "--no-color", "-T", "30"], overall_timeout
+    )
+
+
+async def run_ghunt(email, overall_timeout=120):
+    tool = _find_tool("ghunt")
+    if not tool:
+        print(
+            "\nomniscan: GHunt not found.\n"
+            "Install: pipx install ghunt  then run: ghunt login\n"
+            "Then make sure 'ghunt' is in your PATH."
+        )
+        return None
+    return await _run_subprocess_tool([tool, "email", email], overall_timeout)
+
+
 async def main():
     start_time = time.time()
     colorama.init(autoreset=True)
@@ -394,3 +540,36 @@ async def main():
         print_phoneinfoga_results(phoneinfoga_results)
     elif args.phoneinfoga and not phone_queries:
         print("\n[PhoneInfoga] Skipped: no phone numbers detected in queries (expected format: +12025551234).")
+
+    email_queries = [q for q in queries if EMAIL_REGEX.match(q)]
+    username_queries = [q for q in queries if not EMAIL_REGEX.match(q)]
+
+    if args.holehe:
+        if email_queries:
+            print("\nRunning Holehe scan (this may take a moment)...")
+            holehe_results = {}
+            for eq in email_queries:
+                holehe_results[eq] = await run_holehe(eq)
+            print_holehe_results(holehe_results, available_only=args.available_only)
+        else:
+            print("\n[Holehe] Skipped: Holehe only scans email addresses.")
+
+    if args.maigret:
+        if username_queries:
+            print("\nRunning Maigret scan (this may take a few minutes)...")
+            maigret_results = {}
+            for uq in username_queries:
+                maigret_results[uq] = await run_maigret(uq)
+            _print_tool_section("MAIGRET SCAN", maigret_results)
+        else:
+            print("\n[Maigret] Skipped: Maigret only scans usernames.")
+
+    if args.ghunt:
+        if email_queries:
+            print("\nRunning GHunt scan (this may take a moment)...")
+            ghunt_results = {}
+            for eq in email_queries:
+                ghunt_results[eq] = await run_ghunt(eq)
+            _print_tool_section("GHUNT SCAN", ghunt_results)
+        else:
+            print("\n[GHunt] Skipped: GHunt only scans email addresses.")

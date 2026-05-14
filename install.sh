@@ -102,6 +102,25 @@ if [[ -n "$PHONEINFOGA_ASSET" ]]; then
     fi
 fi
 
+# ── Maigret + GHunt (via pipx) ───────────────────────────────────────────────
+log "Installing Maigret and GHunt..."
+if command -v pipx &>/dev/null; then
+    export PATH="$HOME/.local/bin:$PATH"
+    if pipx install maigret >/dev/null 2>&1; then
+        ok "Maigret installed"
+    else
+        warn "Maigret install failed — install manually: pipx install maigret"
+    fi
+    if pipx install ghunt >/dev/null 2>&1; then
+        ok "GHunt installed (run 'ghunt login' once to authenticate)"
+    else
+        warn "GHunt install failed — install manually: pipx install ghunt"
+    fi
+else
+    warn "pipx not found — skipping Maigret and GHunt."
+    warn "To install: sudo apt install pipx && pipx install maigret && pipx install ghunt"
+fi
+
 # ── PATH hint ─────────────────────────────────────────────────────────────────
 if [[ ":$PATH:" != *":$LOCAL_BIN:"* ]] && [[ -f "$LOCAL_BIN/omniscan" || -f "$LOCAL_BIN/phoneinfoga" ]]; then
     echo ""

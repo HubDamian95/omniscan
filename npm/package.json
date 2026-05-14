@@ -1,6 +1,6 @@
 {
   "name": "omniscan",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "description": "Username, email and phone number scanner. Combines accurate registration-API checks with Sherlock's 480+ site sweep and PhoneInfoga phone scanning.",
   "keywords": ["osint", "username", "email", "scanner", "sherlock", "cli"],
   "author": "HubDamian95",
