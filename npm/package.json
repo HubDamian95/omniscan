@@ -1,7 +1,7 @@
 {
   "name": "omniscan",
-  "version": "2.0.1",
-  "description": "Username and email availability scanner with full-spectrum coverage. Combines accurate registration-API checks with Sherlock's 480+ site sweep.",
+  "version": "2.0.3",
+  "description": "Username, email and phone number scanner. Combines accurate registration-API checks with Sherlock's 480+ site sweep and PhoneInfoga phone scanning.",
   "keywords": ["osint", "username", "email", "scanner", "sherlock", "cli"],
   "author": "HubDamian95",
   "license": "MPL-2.0",

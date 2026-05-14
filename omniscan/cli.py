@@ -19,7 +19,7 @@ from colorama import Fore, Style
 
 from omniscan import __version__
 from omniscan.platforms import PlatformResponse, Platforms
-from omniscan.util import EMAIL_REGEX, init_checkers, init_prerequest, query
+from omniscan.util import EMAIL_REGEX, PHONE_REGEX, init_checkers, init_prerequest, query
 
 BAR_WIDTH = 50
 BAR_FORMAT = "{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed_s:.2f}s]"
@@ -101,6 +101,12 @@ def init_parser():
         "-s",
         action="store_true",
         help="also run Sherlock to check username across 400+ additional sites",
+    )
+    parser.add_argument(
+        "--phoneinfoga",
+        "-n",
+        action="store_true",
+        help="run PhoneInfoga to scan phone numbers (e.g. +12025551234); requires phoneinfoga in PATH",
     )
     parser.add_argument("--version", version=f"%(prog)s {__version__}", action="version")
     return parser
@@ -230,6 +236,60 @@ def print_sherlock_results(sherlock_results, *, available_only, show_urls):
             )
 
 
+async def run_phoneinfoga(number, overall_timeout=60):
+    import os
+    import shutil
+    import subprocess
+
+    phoneinfoga_bin = shutil.which("phoneinfoga")
+    if not phoneinfoga_bin:
+        bin_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+        candidate = os.path.join(bin_dir, "phoneinfoga.exe" if sys.platform == "win32" else "phoneinfoga")
+        if os.path.exists(candidate):
+            phoneinfoga_bin = candidate
+
+    if not phoneinfoga_bin:
+        print(
+            "\nomniscan: PhoneInfoga not found.\n"
+            "Install it from: https://github.com/sundowndev/phoneinfoga/releases\n"
+            "Then make sure 'phoneinfoga' is in your PATH."
+        )
+        return None
+
+    try:
+        result = await asyncio.wait_for(
+            asyncio.to_thread(
+                subprocess.run,
+                [phoneinfoga_bin, "scan", "-n", number],
+                capture_output=True,
+                text=True,
+            ),
+            timeout=overall_timeout,
+        )
+        return (result.stdout + result.stderr).strip()
+    except asyncio.TimeoutError:
+        print(f"\nomniscan: PhoneInfoga scan timed out after {overall_timeout}s")
+        return None
+
+
+def print_phoneinfoga_results(phoneinfoga_results):
+    print("\n" + "=" * DIVIDER_LENGTH)
+    print(" " * (DIVIDER_LENGTH // 2 - 8) + Style.BRIGHT + "PHONEINFOGA SCAN" + Style.RESET_ALL)
+    print("=" * DIVIDER_LENGTH)
+
+    for number, output in phoneinfoga_results.items():
+        header = (
+            f"{'-' * DIVIDER_LENGTH}\n"
+            f"{' ' * (DIVIDER_LENGTH // 2 - len(number) // 2) + Style.BRIGHT + number + Style.RESET_ALL}\n"
+            f"{'-' * DIVIDER_LENGTH}"
+        )
+        print(header)
+        if output:
+            print(output)
+        else:
+            print(COLOUR_ERROR.Primary + "No results returned.")
+
+
 async def main():
     start_time = time.time()
     colorama.init(autoreset=True)
@@ -248,6 +308,13 @@ async def main():
     if not args.queries:
         raise ValueError("You must specify either at least one query or an input file")
     queries = list(dict.fromkeys(queries))
+    phone_queries = [q for q in queries if PHONE_REGEX.match(q)]
+    queries = [q for q in queries if not PHONE_REGEX.match(q)]
+    if phone_queries and not args.phoneinfoga:
+        print(
+            f"Note: {len(phone_queries)} phone number(s) detected but --phoneinfoga flag not set. "
+            "Use -n / --phoneinfoga to scan them."
+        )
     if args.platforms:
         platforms = []
         for p in args.platforms:
@@ -318,3 +385,12 @@ async def main():
             )
         else:
             print("\n[Sherlock] Skipped: Sherlock only supports username queries, not email addresses.")
+
+    if args.phoneinfoga and phone_queries:
+        print("\nRunning PhoneInfoga scan (this may take a moment)...")
+        phoneinfoga_results = {}
+        for pq in phone_queries:
+            phoneinfoga_results[pq] = await run_phoneinfoga(pq)
+        print_phoneinfoga_results(phoneinfoga_results)
+    elif args.phoneinfoga and not phone_queries:
+        print("\n[PhoneInfoga] Skipped: no phone numbers detected in queries (expected format: +12025551234).")

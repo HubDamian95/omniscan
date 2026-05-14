@@ -16,6 +16,8 @@ EMAIL_REGEX = re.compile(
     r"^[a-zA-Z0-9.!#$%&’*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,253}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,253}[a-zA-Z0-9])?)+$"
 )
 
+PHONE_REGEX = re.compile(r"^\+[1-9]\d{4,14}$")
+
 
 async def init_prerequest(platform, checkers):
     if issubclass(platform.value, PrerequestRequired):
