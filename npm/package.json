@@ -1,0 +1,26 @@
+{
+  "name": "omniscan",
+  "version": "2.0.1",
+  "description": "Username and email availability scanner with full-spectrum coverage. Combines accurate registration-API checks with Sherlock's 480+ site sweep.",
+  "keywords": ["osint", "username", "email", "scanner", "sherlock", "cli"],
+  "author": "HubDamian95",
+  "license": "MPL-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/HubDamian95/omniscan.git"
+  },
+  "homepage": "https://github.com/HubDamian95/omniscan",
+  "bin": {
+    "omniscan": "./bin/omniscan.js"
+  },
+  "scripts": {
+    "postinstall": "node scripts/postinstall.js"
+  },
+  "files": [
+    "bin/omniscan.js",
+    "scripts/postinstall.js"
+  ],
+  "engines": {
+    "node": ">=14"
+  }
+}
