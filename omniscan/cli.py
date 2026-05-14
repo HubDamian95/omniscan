@@ -162,16 +162,23 @@ def print_json(results, *, file, available_only):
         f.write(json.dumps(results, default=serialize, indent=4))
 
 
-async def run_sherlock(username, timeout=15):
+async def run_sherlock(username, per_request_timeout=10, overall_timeout=120):
     from sherlock_project.notify import QueryNotify
     from sherlock_project.sherlock import sherlock as sherlock_scan
     from sherlock_project.sites import SitesInformation
 
     sites_info = SitesInformation()
     site_data = {site.name: site.information for site in sites_info}
-    return await asyncio.to_thread(
-        sherlock_scan, username, site_data, QueryNotify(), timeout=timeout
-    )
+    try:
+        return await asyncio.wait_for(
+            asyncio.to_thread(
+                sherlock_scan, username, site_data, QueryNotify(), timeout=per_request_timeout
+            ),
+            timeout=overall_timeout,
+        )
+    except asyncio.TimeoutError:
+        print(f"\nomniscan: Sherlock scan timed out after {overall_timeout}s")
+        return {}
 
 
 def print_sherlock_results(sherlock_results, *, available_only, show_urls):

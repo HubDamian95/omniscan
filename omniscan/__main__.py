@@ -18,11 +18,14 @@ def main():
         else:
             if not isinstance(asyncio.get_event_loop_policy(), WindowsSelectorEventLoopPolicy):
                 asyncio.set_event_loop_policy(WindowsSelectorEventLoopPolicy())
-    if sys.version_info >= (3, 7):
-        asyncio.run(cli.main())
-    else:
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(cli.main())
+    try:
+        if sys.version_info >= (3, 7):
+            asyncio.run(cli.main())
+        else:
+            loop = asyncio.get_event_loop()
+            loop.run_until_complete(cli.main())
+    except KeyboardInterrupt:
+        sys.exit(0)
 
 
 if __name__ == "__main__":

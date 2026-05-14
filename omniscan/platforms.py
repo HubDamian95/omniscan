@@ -573,11 +573,11 @@ class Platforms(Enum):
     GITHUB = GitHub
     GITLAB = GitLab
     INSTAGRAM = Instagram
-    PINTEREST = Pinterest
     REDDIT = Reddit
     TWITTER = Twitter
-    TUMBLR = Tumblr
     FIREFOX = Firefox
+    # Tumblr: ServerDisconnectedError — registration API endpoint changed
+    # Pinterest: endpoint dead — _ngjs API removed
 
     def __str__(self):
         return self.value.__name__
