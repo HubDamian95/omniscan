@@ -119,6 +119,17 @@ omniscan johndoe --platforms github reddit gitlab
 
 Plus 480+ sites via `--sherlock` and phone number intelligence via `--phoneinfoga`.
 
+## Credits
+
+omniscan is built on top of [socialscan](https://github.com/iojw/socialscan) by [iojw](https://github.com/iojw), which provides the core platform-checking engine and the registration-API approach that makes the built-in checks accurate. The aggregation layer, additional tool integrations, and binary distribution are omniscan's additions — but the foundation is theirs.
+
+The bundled tools each have their own authors and communities:
+- [Sherlock](https://github.com/sherlock-project/sherlock) — sherlock-project
+- [Holehe](https://github.com/megadose/holehe) — megadose
+- [Maigret](https://github.com/soxoj/maigret) — soxoj
+- [GHunt](https://github.com/mxrch/GHunt) — mxrch
+- [PhoneInfoga](https://github.com/sundowndev/phoneinfoga) — sundowndev
+
 ## License
 
-[MPL 2.0](https://www.mozilla.org/en-US/MPL/2.0/)
+[MPL 2.0](https://www.mozilla.org/en-US/MPL/2.0/) — inherited from socialscan.
